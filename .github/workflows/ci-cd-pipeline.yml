@@ -1,0 +1,112 @@
+name: RaceDay System CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  # =======================================================
+  # JOB 1: Build, Lint & Validate SQL Schema
+  # =======================================================
+  database-and-build:
+    name: Build & Validate Database Schema
+    runs-on: ubuntu-latest
+
+    # Spin up MS SQL Server 2019 container for integration testing
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        env:
+          SA_PASSWORD: "YourStrong@Password123"
+          ACCEPT_EULA: "Y"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Password123' -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Application Dependencies
+        run: npm ci
+
+      - name: Test SQL Script Execution (part1_poe.sql)
+        run: |
+          echo "Executing Database Initialization Script..."
+          # Install sqlcmd CLI tool on Ubuntu
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+          sudo apt-get update
+          ACCEPT_EULA=Y sudo apt-get install -y mssql-tools unixodbc-dev
+          
+          # Run database schema and seed data script against SQL Server
+          /opt/mssql-tools/bin/sqlcmd -S localhost,1433 -U sa -P 'YourStrong@Password123' -i part1_poe.sql
+
+  # =======================================================
+  # JOB 2: Run API Route Integration & Unit Tests
+  # =======================================================
+  api-testing:
+    name: Run API Endpoint Tests
+    needs: database-and-build
+    runs-on: ubuntu-latest
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        env:
+          SA_PASSWORD: "YourStrong@Password123"
+          ACCEPT_EULA: "Y"
+        ports:
+          - 1433:1433
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Test Suite (Auth, Events, Enrolments, Results)
+        env:
+          DB_SERVER: localhost
+          DB_NAME: part1_poe
+          DB_USER: sa
+          DB_PASSWORD: "YourStrong@Password123"
+          JWT_SECRET: "ci_cd_test_secret_key"
+        run: npm test
+
+  # =======================================================
+  # JOB 3: Deployment (Runs on main/master branch push)
+  # =======================================================
+  deploy:
+    name: Deploy Application
+    needs: api-testing
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Server / Cloud Service
+        run: |
+          echo "🚀 CI/CD Pipeline passed all checks!"
+          echo "Deploying RaceDay System to target server..."
