@@ -148,3 +148,18 @@ GO
 PRINT '✅ part1_poe created successfully with seed data.';
 PRINT '✅ All constraints passed — NO duplicate key errors!';
 GO
+USE part1_poe;
+GO
+
+-- Check all tables and row counts in a single view
+SELECT 'Role' AS TableName, COUNT(*) AS TotalRecords FROM Role
+UNION ALL
+SELECT 'User', COUNT(*) FROM [User]
+UNION ALL
+SELECT 'EventCategory', COUNT(*) FROM EventCategory
+UNION ALL
+SELECT 'Event', COUNT(*) FROM [Event]
+UNION ALL
+SELECT 'EventEnrolment', COUNT(*) FROM EventEnrolment
+UNION ALL
+SELECT 'Result', COUNT(*) FROM Result;
