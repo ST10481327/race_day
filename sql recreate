@@ -1,30 +1,21 @@
 -- =============================================
--- RaceDay System — SSMS Database Script
+-- RaceDay System — Database Script
 -- Script Name: part1_poe
 -- Creates schema + seed data
--- Tested on: SQL Server 2016+
 -- =============================================
 
--- Switch to master FIRST and STAY there until DROP/CREATE done
-USE master;
-GO
-
--- Prevent "database in use" errors — kick all connections
+-- Safely drop existing database by severing active connections
 IF EXISTS (SELECT name FROM sys.databases WHERE name = N'part1_poe')
 BEGIN
     ALTER DATABASE part1_poe SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    ALTER DATABASE part1_poe SET MULTI_USER; -- release lock
     DROP DATABASE part1_poe;
-END
-GO
+END;
 
 -- Create fresh database
 CREATE DATABASE part1_poe;
-GO
 
--- EXPLICITLY switch — forces context (CRITICAL FIX)
+-- Explicitly switch context to the new database
 USE part1_poe;
-GO
 
 -- =============================================
 -- 1. Roles Table
@@ -104,8 +95,6 @@ CREATE TABLE Result (
     FOREIGN KEY (enrolment_id) REFERENCES EventEnrolment(enrolment_id) ON DELETE CASCADE
 );
 
-GO
-
 -- =============================================
 -- SEED DATA
 -- =============================================
@@ -116,14 +105,14 @@ INSERT INTO Role (role_name, description) VALUES
 ('Organiser', 'Can create and manage events'),
 ('Participant', 'Can enrol and view results');
 
--- Users (IDs: 1=Sarah, 2=Mike, 3=Thabo, 4=Lerato)
+-- Users
 INSERT INTO [User] (name, email, password_hash, phone, address, role_id) VALUES
 ('Sarah Johnson', 'sarah@racehub.com', 'HASH_ORG1', '011-555-0101', 'Johannesburg', 2),
 ('Mike Dube', 'mike@racehub.com', 'HASH_ORG2', '011-555-0102', 'Pretoria', 2),
 ('Thabo Mkhize', 'thabo@email.com', 'HASH_P1', '082-555-0103', 'Sandton', 3),
 ('Lerato Ndlovu', 'lerato@email.com', 'HASH_P2', '083-555-0104', 'Midrand', 3);
 
--- Categories (IDs: 1=5K, 2=10K, 3=Half Marathon, 4=Full Marathon)
+-- Categories
 INSERT INTO EventCategory (category_name, description, distance_km) VALUES
 ('5K Fun Run', 'Short distance recreational run', 5.00),
 ('10K Road Race', 'Standard 10km road event', 10.00),
@@ -136,32 +125,24 @@ INSERT INTO [Event] (event_name, description, event_date, location, max_particip
 ('Sandton 5K Twilight', 'Evening fun run with lights', '2026-11-05', 'Sandton City', 300, 'Open', 1, 1),
 ('Pretoria Half Marathon', 'Scenic route around the Union Buildings', '2026-12-01', 'Pretoria CBD', 800, 'Open', 2, 3);
 
--- Enrolments (Generated IDs: 1, 2, 3, 4)
+-- Enrolments
 INSERT INTO EventEnrolment (status, user_id, event_id) VALUES
-('Approved', 3, 1),    -- enrolment_id = 1
-('Pending', 4, 1),     -- enrolment_id = 2
-('Approved', 3, 2),    -- enrolment_id = 3
-('Approved', 4, 3);    -- enrolment_id = 4
+('Approved', 3, 1),
+('Pending', 4, 1),
+('Approved', 3, 2),
+('Approved', 4, 3);
 
--- Results ✅ Uses enrolment IDs 1 and 3 — NO duplicates!
+-- Results
 INSERT INTO Result (finish_time, position, notes, enrolment_id) VALUES
 ('00:48:32', 12, 'Personal best!', 1),
 ('00:35:20', 8, 'Great run!', 3);
 
-GO
-
-PRINT '✅ part1_poe created successfully with seed data.';
-PRINT '✅ All constraints passed — NO duplicate key errors!';
-PRINT '';
-
 -- =============================================
 -- VERIFICATION
 -- =============================================
-SELECT 
-    'Role' AS TableName, COUNT(*) AS TotalRecords FROM Role UNION ALL
-    SELECT 'User', COUNT(*) FROM [User] UNION ALL
-    SELECT 'EventCategory', COUNT(*) FROM EventCategory UNION ALL
-    SELECT 'Event', COUNT(*) FROM [Event] UNION ALL
-    SELECT 'EventEnrolment', COUNT(*) FROM EventEnrolment UNION ALL
-    SELECT 'Result', COUNT(*) FROM Result;
-GO
+SELECT 'Role' AS TableName, COUNT(*) AS TotalRecords FROM Role 
+UNION ALL SELECT 'User', COUNT(*) FROM [User] 
+UNION ALL SELECT 'EventCategory', COUNT(*) FROM EventCategory 
+UNION ALL SELECT 'Event', COUNT(*) FROM [Event] 
+UNION ALL SELECT 'EventEnrolment', COUNT(*) FROM EventEnrolment 
+UNION ALL SELECT 'Result', COUNT(*) FROM Result;
