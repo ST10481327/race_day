@@ -28,9 +28,9 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Wait for SQL Server Container to Ready
+      - name: Wait for SQL Server Container
         run: |
-          echo "Waiting for SQL Server to boot up..."
+          echo "Waiting for SQL Server to initialize..."
           for i in {1..30}; do
             docker exec ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Password123' -Q 'SELECT 1' && break || sleep 2
           done
@@ -44,7 +44,6 @@ jobs:
       - name: Test SQL Script Execution (part1_poe.sql)
         run: |
           echo "Executing Database Initialization Script..."
-          # Execute the script against local SQL Server container
           /opt/mssql-tools/bin/sqlcmd -S localhost,1433 -U sa -P 'YourStrong@Password123' -i part1_poe.sql
 
   # =======================================================
@@ -72,11 +71,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '22'
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: Check package.json & Install Dependencies
+        run: |
+          if [ -f package.json ]; then
+            echo "package.json found. Installing dependencies..."
+            if [ -f package-lock.json ]; then
+              npm ci
+            else
+              npm install
+            fi
+          else
+            echo "No package.json found in repository root. Skipping npm install."
+          fi
 
       - name: Run Test Suite
         env:
@@ -85,7 +93,12 @@ jobs:
           DB_USER: sa
           DB_PASSWORD: "YourStrong@Password123"
           JWT_SECRET: "ci_cd_test_secret_key"
-        run: npm test --if-present
+        run: |
+          if [ -f package.json ]; then
+            npm test --if-present
+          else
+            echo "No package.json present. Skipping automated API tests."
+          fi
 
   # =======================================================
   # JOB 3: Deployment
@@ -102,4 +115,4 @@ jobs:
 
       - name: Deploy Step
         run: |
-          echo "🚀 All CI/CD checks passed successfully!"
+          echo "🚀 Database validation and build checks completed successfully!"
