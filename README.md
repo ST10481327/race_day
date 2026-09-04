@@ -17,3 +17,4 @@ The **RaceDay System** provides a centralized system to manage race categories, 
 ---
 
 ].
+Screenshot 2026-09-04 222422.png
